@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Editable Tree</title>
+    <style>
+        html {
+            -webkit-user-select: none;
+        }
+        .nodeLabel:before {
+            content: "";
+            position: absolute;
+            left: 1px;
+            top: 5px;
+            width: 20px;
+            height: 20px;
+            box-sizing: border-box;
+            border: 1px solid black;
+            background: white;
+        }
+        .nodeLabel {
+             position: relative;
+             line-height: 30px;
+             font-family: Helvetica, Arial, sans-serif;
+             font-size: 12px;
+             display: inline-block;
+             padding-left: 28px;
+             color: black;
+             cursor: default;
+        }
+        .nodeChildWrapper {
+            clear: both;
+        }
+        .nodeChild {
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            margin-left: 30px;
+        }
+        .addNode {
+            display: block;
+            width: 0;
+            height: 0;
+            background: red;
+            transition: height .2s linear;
+        }
+        .nodePlaceholder {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 1;
+            opacity: 0;
+            color: white;
+            transition: .3s opacity;
+        }
+        .nodePlaceholder:after {
+            content: "";
+            z-index: -1;
+            position: absolute;
+            left: -3px;
+            right: -7px;
+            bottom: 1px;
+            top: 1px;
+            background: #0292e0;
+            border-radius: 3px;
+        }
+        .nodeChild.selected:before {
+            content: "";
+            z-index: -1;
+            position: absolute;
+            left: -5px;
+            right: -9px;
+            bottom: -1px;
+            top: -1px;
+            border: 1px dotted #d0d0d0;
+            border-radius: 5px;
+        }
+        .nodeChild.selected > .nodeLabel:after {
+            content: "";
+            z-index: -1;
+            position: absolute;
+            left: -3px;
+            right: -7px;
+            bottom: 1px;
+            top: 1px;
+            background: #f6f6f6;
+            border: 1px solid #bbb;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+<div id="treeElement"></div>
+<script>
+
+var tree = {
+        label: "body",
+        children: [
+            {
+                label: "div",
+                children: [
+                    {
+                        label: "div"
+                    },
+                    {
+                        label: "ul",
+                        children: [
+                            {
+                                label: "li"
+                            },
+                            {
+                                label: "li"
+                            }
+                        ]
+                    },
+                    {
+                        label: "div"
+                    },
+                ]
+            },
+            {
+                label: "div",
+                children: [
+                    {
+                        label: "img"
+                    },
+                    {
+                        label: "span"
+                    }
+                ]
+            },
+            {
+                label: "div"
+            }
+        ]
+    };
+
+function createAddPoint(node, index, element, addPoints) {
+    var add = document.createElement("div");
+
+    add.className = "nodeChild addNode";
+    element.appendChild(add);
+    addPoints.push({
+        node: node,
+        index: index,
+        element: add,
+        nodeElement: element
+    });
+}
+
+function createNode(node, element, addPoints) {
+    var label = document.createElement("div"),
+        child,
+        childWrapper,
+        i;
+
+    if (!addPoints) {
+        addPoints = [];
+    }
+    node.element = element;
+    node.labelElement = label;
+    label.node = node;
+    label.textContent = node.label;
+    label.className = "nodeLabel";
+    element.appendChild(label);
+    createAddPoint(node, 0, element, addPoints);
+    if (node.children) {
+        for (i = 0; i < node.children.length; i++) {
+            childWrapper = document.createElement("div");
+            childWrapper.className = "nodeChildWrapper";
+            element.appendChild(childWrapper);
+            child = document.createElement("div");
+            child.className = "nodeChild";
+            childWrapper.appendChild(child);
+            createNode(node.children[i], child, addPoints);
+            createAddPoint(node, i + 1, element, addPoints);
+        }
+    }
+    return addPoints;
+}
+
+function draw() {
+    var addPoints;
+
+    treeElement.innerHTML = "";
+    addPoints = createNode(tree, treeElement);
+    return addPoints;
+}
+
+var previousCloser,
+    addPoints,
+    selectedNode,
+    placeholder,
+    placeholder2,
+    placeholderX,
+    placeholderY,
+    pointerX,
+    pointerY;
+
+function handleMousemove(event) {
+    var dX = event.pageX - pointerX,
+        dY = event.pageY - pointerY;
+
+    if (firstMove) {
+        firstMove = false;
+        placeholder.style.opacity = .7;
+    }
+    placeholderX += dX;
+    placeholderY += dY;
+    placeholder.style.left = placeholderX + "px";
+    placeholder.style.top = placeholderY + "px";
+
+    var i,
+        dist,
+        dX, dY,
+        minDist = 30 * 30,
+        x = placeholderX,
+        y = placeholderY,
+        clientRect,
+        closer;
+
+    for (i = 0; i < addPoints.length; i++) {
+        dX = addPoints[i].x - x;
+        dY = addPoints[i].y - y;
+        dist = dX * dX + dY * dY;
+        if (dist < minDist) {
+            minDist = dist;
+            closer = addPoints[i];
+        }
+    }
+    if (closer !== previousCloser) {
+        if (previousCloser) {
+            previousCloser.element.style.height = "0";
+        }
+        if (closer) {
+            closer.element.style.height = placeholder.clientHeight + "px";
+        }
+        previousCloser = closer;
+    }
+    if (closer) {
+        var k = 0;// minDist / 400;
+        placeholder.classList.add("foo");
+        placeholder2.style.opacity = .3;
+        placeholder2.style.left = (closer.x * (1 - k) + placeholderX * k) + "px";
+        placeholder2.style.top = (closer.y * (1 - k) + placeholderY * k) + "px";
+    } else {
+        placeholder2.style.opacity = 0;
+    }
+    pointerX = event.pageX;
+    pointerY = event.pageY;
+}
+
+function handleMouseup() {
+    placeholder2.parentNode.removeChild(placeholder2);
+    placeholder.parentNode.removeChild(placeholder);
+    removeEventListener("mousemove", handleMousemove, false);
+    removeEventListener("mouseup", handleMouseup, false);
+    if (previousCloser) {
+        previousCloser.element.style.height = "0";
+    }
+}
+
+function handleMousedown(event) {
+    var target = event.target,
+        rect;
+
+    firstMove = true;
+    pointerX = event.pageX;
+    pointerY = event.pageY;
+    if (this.selectedNode) {
+        this.selectedNode.element.classList.remove("selected");
+    }
+    if (target.classList.contains("nodeLabel")) {
+        if (target.node.element !== treeElement) {
+            this.selectedNode = target.node;
+            this.selectedNode.element.classList.add("selected");
+            rect = this.selectedNode.labelElement.getBoundingClientRect();
+            placeholder = this.selectedNode.labelElement.cloneNode(true);
+            placeholder.classList.add("nodePlaceholder");
+            placeholderX = rect.left;
+            placeholderY = rect.top;
+            placeholder.style.left = placeholderX + "px";
+            placeholder.style.top = placeholderY + "px";
+            placeholder2 = this.selectedNode.labelElement.cloneNode(true);
+            placeholder2.classList.add("nodePlaceholder");
+            document.body.insertBefore(placeholder, document.body.children[0]);
+            document.body.insertBefore(placeholder2, document.body.children[0]);
+            addEventListener("mousemove", handleMousemove, false);
+            addEventListener("mouseup", handleMouseup, false);
+        }
+    }
+}
+
+function init() {
+    var clientRect,
+        i;
+
+    addPoints = draw();
+    for (i = 0; i < addPoints.length; i++) {
+        clientRect = addPoints[i].element.getBoundingClientRect();
+        addPoints[i].x = clientRect.left;
+        addPoints[i].y = clientRect.top;
+    }
+    addEventListener("mousedown", handleMousedown, false);
+}
+
+init();
+
+</script>
+</body>
+</html>
